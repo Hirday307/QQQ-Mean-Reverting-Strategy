@@ -8,7 +8,7 @@ Stocks that exhibit a strong historical correlation with the NASDAQ index are li
  
 ## Key Features
 •	Dynamic Correlation Tracking: Top 10 QQQ-correlated stocks are selected monthly based on a 252-day rolling Pearson correlation.<br>
-•	Z-Score-Based Trading Signals: Entry/exit points are determined by z-score deviations between a stock’s current price and QQQ, normalized by historical MAE and standard deviation.<br>
+•	Z-Score and SMA Based Trading Signals: Entry/exit points are determined by z-score deviations between a stock’s current price and QQQ ,and iff the stock is bullish or bearish based on 15 day SMA and 45 day SMA, normalized by historical MAE and standard deviation.<br>
 •	Momentum Filtering: On capital reallocation( Buy/ Sell Signal), funds flow preferentially into/from stocks with bearish/bullish short-term trends.<br>
 •	Full Capital Utilization: The portfolio is always fully invested with active rebalancing to avoid idle capital.<br>
 •	Immediate Execution: Signals are executed without delay, using daily resolution data.<br>
@@ -20,11 +20,13 @@ Z = (|Current Error| - Mean Absolute Error) / Standard Deviation of Error<br>
 where Error => Stock Price - QQQ Price <br>
 ### Buy Signal<br>
 •	Z-Score ≤ -2<br>
+•	15 dat SMA < 45 day SMA<br>
 •	The stock is significantly undervalued relative to QQQ.<br>
 •	Allocate 10% capital to the stock.<br>
 •	Capital is withdrawn proportionally from current bullish holdings.<br>
 ### Sell Signal<br>
 •	Z-Score ≥ 2<br>
+•	15 dat SMA > 45 day SMA<br>
 •	The stock is significantly overvalued relative to QQQ.<br>
 •	Liquidate the position.<br>
 •	Reallocate capital to bearish holdings only (based on SMA trend filter).<br>
@@ -32,9 +34,9 @@ where Error => Stock Price - QQQ Price <br>
 ## Portfolio Construction<br>
 1.	Stock Universe: Starts with 100 NASDAQ-listed stocks.<br>
 2.	Top 10 Selection: Monthly correlation with QQQ over 252-day rolling window.<br>
-3.	Monthly Rebalancing: Replace any stocks no longer in top 10 and reset 10% allocation per stock.<br>
+3.	Monthly Rebalancing: Replace any stocks no longer in top 10 and 10% weight is allocated per new stock from the weight freed by selling the stocks no longer in top 10 or euqally withdrawing the capital from the already invested bullish stocks when required .<br>
 4.	On Signal Trades: Positions adjusted based on signals and trend filters.<br>
-5.	Momentum Filter: Prioritize reallocating into stocks where SMA(30) > SMA(180).<br>
+5.	Momentum Filter: Prioritize reallocation of Capital into/from bearish/bullish stocks based on SMA(15) & SMA(45).<br>
  
 ## Execution Details<br>
 •	Resolution: Daily<br>
