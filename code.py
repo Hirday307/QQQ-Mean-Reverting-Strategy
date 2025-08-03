@@ -38,7 +38,7 @@ class LogicalApricotShark(QCAlgorithm):
             self.symbol_data[symbl] = {'corr':0.0, 'price':price}
 
         self.set_warm_up(self.cor_window + 5, Resolution.DAILY)
-        self.schedule.on(self.date_rules.month_start("QQQ"), self.time_rules.after_market_open("QQQ", 30), self.rebalance)
+        self.schedule.on(self.date_rules.month_start("QQQ"), self.time_rules.after_market_open("QQQ", 15), self.rebalance)
 
 
 
@@ -75,11 +75,14 @@ class LogicalApricotShark(QCAlgorithm):
             std_error = np.std([abs(a - b) for a, b in zip( a, b)])
             if mean_error !=0:
                 z_score = (current_error - mean_error) / std_error
+            
+            short_ema = self.ema(i,15,Resolution.DAILY)
+            long_ema  = self.ema(i,45,Resolution.DAILY)
 
             self.log(f"[OnData] {i.value}: Z Score = {z_score:.2f}, Current Error = {current_error:.2f}, Mean error = {mean_error:.2f}")
 
             #Sell Signal
-            if z_score >= 2 :
+            if z_score >= 2 and short_ema > long_ema and self.portfolio[i].invested:
 
                 self.log(f"[OnData] SELL Signal: {i.value}, Z Score = {z_score:.2f}")
 
@@ -91,7 +94,7 @@ class LogicalApricotShark(QCAlgorithm):
                 c = [kvp for kvp in self.top_10 if (self.portfolio[kvp].holdings_value > 0) ]
                 weight_tobe_raised =  weight_tobe_freed / float(len(c)) 
 
-                bearish_stock = [kv for kv in c if (( (np.mean(list(self.symbol_data[kv]['price'])[:30])) < (np.mean(list(self.symbol_data[kv]['price'])[:180])))) ]
+                bearish_stock = [kv for kv in c if (( short_ema < long_ema)) ]
                 if len(bearish_stock)>0:
                     weight_tobe_raised =  weight_tobe_freed / float(len(bearish_stock))
                     self.prfrd_list = bearish_stock
@@ -105,14 +108,14 @@ class LogicalApricotShark(QCAlgorithm):
                         self.log(f"[OnData] Reweighted {h.value} to {ws:.4f}")
 
             #Buy Signal
-            if z_score <= -2:
+            if z_score <= -2 and short_ema < long_ema :
 
                 self.log(f"[OnData] BUY Signal: {i.value}, Z Score = {z_score:.2f}")
 
                 hlp = []
                 self.top_10_hlp = self.top_10
                 hlp = [kvp for kvp in self.top_10 if (self.portfolio[kvp].holdings_value > 0) ]
-                bullish_stock = [kv for kv in hlp if (((np.mean(list(self.symbol_data[kv]['price'])[:30])) > (np.mean(list(self.symbol_data[kv]['price'])[:180])))) ]
+                bullish_stock = [kv for kv in hlp if ((short_ema > long_ema)) ]
                 
                 count= len(bullish_stock)
                 if len(bullish_stock) > 0:
@@ -161,15 +164,39 @@ class LogicalApricotShark(QCAlgorithm):
         temp = sorted(corr_list, key=lambda x: x[1], reverse=True)[:10]
         new_top_10 = [symbol for symbol, corr in temp]
         self.log(f"[Rebalance] Top 10 Correlated Stocks: {[s.value for s in new_top_10]}")
+        weight_available = 0
 
 
         for i in self.top_10:
             if i not in new_top_10:
                 self.log(f"[Rebalance] Liquidating {i.value} - no longer in top 10")
+                weight_available = (self.portfolio[i].holdings_value /self.portfolio.total_holdings_value) + weight_available
                 self.liquidate(i)
 
         self.top_10 = new_top_10
+        old_stocks = [kc for kc in new_top_10 if kc in self.top_10 ]
 
         for i in self.top_10:
-            self.set_holdings( i, 0.1)
-            self.log(f"[Rebalance] Buying {i.value} at 10% weight")
+
+            if not(self.portfolio.invested):
+                self.set_holdings(i, 0.1)
+
+            if self.portfolio.invested:
+             if not(self.portfolio[i].invested) :
+                if weight_available >= 0.1:
+
+                    self.set_holdings(i,0.1)
+                    self.log(f"[Rebalance] Buying {i.value} at 10% weight from the freed weight")
+                    weight_available = weight_available - 0.1
+                
+                if weight_available < 0.1:
+
+                 b = 0.1 - weight_available
+                 weight_available = 0
+                 wtd = len(old_stocks) / b
+                 for x in old_stocks:
+                    old_w = self.portfolio[x].holdings_value / self.portfolio.total_holdings_value
+                    new_w = old_w - wtd
+                    self.set_holdings(x, new_w)
+                    self.log(f"{wtd} sold from {x} to buy {i}")
+                 self.set_holdings(i,0.1)
