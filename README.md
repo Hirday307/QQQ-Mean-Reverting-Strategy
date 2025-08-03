@@ -53,3 +53,4 @@ where Error => Stock Price - QQQ Price <br>
 •	Momentum-Aware Reallocation: Ensures capital flows into upward-trending assets instead of static rebalancing.<br>
 
 
+**All rights reserved © 2025 Hirdayjeet Singh Bhandal.**
